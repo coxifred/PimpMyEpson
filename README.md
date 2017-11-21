@@ -1,2 +1,2 @@
 # PimpMyEpson
-Control you videoprojector with wifi
+Control your videoprojector with wifi
