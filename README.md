@@ -1,2 +1,8 @@
 # PimpMyEpson
-Control your videoprojector with wifi
+
+
+Please read https://github.com/coxifred/PimpMyEpson/wiki
+
+
+
+
