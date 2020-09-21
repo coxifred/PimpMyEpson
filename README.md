@@ -1,4 +1,4 @@
-### **Welcome to the PimpMyEpson wiki!**
+### **Welcome to the PimpMyEpson!**
 
 ![PimpMyEpson](https://github.com/coxifred/PimpMyEpson/blob/master/images_resources4wiki/title.png?raw=true)
 
