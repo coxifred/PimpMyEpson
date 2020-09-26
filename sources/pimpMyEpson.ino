@@ -4,8 +4,9 @@
  * 
  * Drive your Epson projector by wifi
  * 
+ * Changes :
+ * 26/09/2020 : Avoid wifi reset to factory, if wifi ssid is not here, fix communication issue (parasites)
  */
-
 
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
@@ -64,17 +65,20 @@ ESP8266WebServer server(80);
 
 // Some values
 String ledValue="off";
-String version="1.0";
+String version="2.0";
 String host="PimpMyEpson";
 String jsonScanWifi="";
 int ledState = LOW;
+int wifiFailure=0;
 
 // A Chronograph 
 Chrono myChrono;
 unsigned long previousMillis = 0;
 unsigned long previousMillisWifi = 0;
+unsigned long previousMillisReboot = 0;
 const long interval = 1000;
-const long intervalWifi = 60000;
+const long intervalWifi = 180000;
+const long intervalReboot = 1000 * 60 * 60 * 1;
 
 // Main Setup
 void setup(void){
@@ -319,12 +323,10 @@ void setStationWifi()
  if ( timeout <= 0)
  {
   Serial.println("Wifi connection failed, check ssid and password, reseting to access point");
-  resetConfig();
-  saveConfig();
   server.send(200, "text/plain", "KO");
  }else
  {
-  saveConfig();
+ 
   MDNS.begin((const char*)host.c_str());
   manageServerHttp();
   MDNS.addService("http", "tcp", 80);
@@ -338,6 +340,7 @@ void setStationWifi()
   Serial.print(pimpConfig.password);Serial.println("]");
   Serial.print(" - Open http://");
   Serial.print(ip);
+  saveConfig();
   Serial.println(" in your favorite browser");
   server.send(200, "text/plain", ipToString(ip));
   
@@ -361,11 +364,13 @@ void manageServerHttp()
 {
     // Head HTTP Management
     server.on("/", HTTP_GET, [](){
-      server.sendHeader("Connection", "close");
-      server.setContentLength(strlen_P(DATA_index));
-      server.sendHeader("Cache-Control", "max-age=290304000, public");
-      server.sendHeader("Access-Control-Allow-Origin", "*");
-      server.sendContent_P( DATA_index, sizeof(DATA_index) );
+      //server.sendHeader("Connection", "close");
+      //server.setContentLength(strlen_P(DATA_index));
+      //server.sendHeader("Cache-Control", "max-age=290304000, public");
+      //server.sendHeader("Access-Control-Allow-Origin", "*");
+      server.sendHeader("content-encoding","gzip");
+      //server.sendContent_P( DATA_index, sizeof(DATA_index) );
+      server.send_P(200,"text/html",DATA_index,sizeof(DATA_index));
     });
     
     // When Epson Logo is requested
@@ -535,6 +540,7 @@ void loop(void){
   delay(1);
   unsigned long currentMillis = millis();
   unsigned long currentMillisWifi = millis();
+  unsigned long currentMillisReboot = millis();
   if(currentMillis - previousMillis >= interval && ledValue == "blink" ) {
         previousMillis = currentMillis;
         if (ledState == LOW)
@@ -563,7 +569,12 @@ void loop(void){
             setStationWifi();
           }
         }
-   }
+     }
+    if(currentMillisReboot - previousMillisReboot >= intervalReboot ) {
+        previousMillisReboot = currentMillisReboot;
+        Serial.println("   Reboot now, intervalReboot reached");
+        ESP.restart();
+     }
   
 
 }
@@ -577,17 +588,26 @@ String sendCommand(String command)
   mySerial.flush();
   Serial.println("    * Sending command " + command );
   mySerial.println(command);
-  delay(500);
-  while(mySerial.available()>0) {
+  delay(50);
+  if (mySerial.available()>0)
+  {
      String feedback=mySerial.readString();
      // Remove carriage return;
      feedback.replace("\n:","");
      feedback.replace("\r:","");
-     Serial.println("    * Feedback to command " + command + " => " + feedback);
-     Serial.println("    * Flushing serial");
      mySerial.flush();
      return feedback;
-   }
+  }
+  //while(mySerial.available()>0) {
+  //   String feedback=mySerial.readString();
+  //   // Remove carriage return;
+  //   feedback.replace("\n:","");
+  //   feedback.replace("\r:","");
+  //   Serial.println("    * Feedback to command " + command + " => " + feedback);
+  //   Serial.println("    * Flushing serial");
+  //   mySerial.flush();
+  //   return feedback;
+  // }
    Serial.println("    * No Feedback to command " + command + " :(");
    Serial.println("    * Flushing serial");
    mySerial.flush();
